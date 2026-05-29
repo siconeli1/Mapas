@@ -1,0 +1,170 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #1a202c; /* Dark background */
+    color: #e2e8f0; /* Light text */
+}
+
+#map {
+    width: 100vw;
+    height: 100vh;
+}
+
+.sidebar {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 350px;
+    max-height: calc(100vh - 40px);
+    background-color: rgba(30, 41, 59, 0.7); /* Dark blue with transparency */
+    backdrop-filter: blur(10px); /* Glassmorphism effect */
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.sidebar h1 {
+    color: #90cdf4;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.input-group input[type="text"] {
+    width: calc(100% - 20px);
+    padding: 10px;
+    border: 1px solid #4a5568;
+    border-radius: 8px;
+    background-color: #2d3748;
+    color: #e2e8f0;
+    font-size: 16px;
+}
+
+.input-group input[type="text"]:focus {
+    outline: none;
+    border-color: #63b3ed;
+    box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.5);
+}
+
+.autocomplete-results {
+    border: 1px solid #4a5568;
+    border-top: none;
+    max-height: 150px;
+    overflow-y: auto;
+    background-color: #2d3748;
+    z-index: 1001;
+    position: relative;
+    top: -1px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.autocomplete-results div {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #4a5568;
+}
+
+.autocomplete-results div:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-results div:hover {
+    background-color: #4a5568;
+}
+
+button {
+    display: block;
+    width: 100%;
+    padding: 12px 20px;
+    margin-top: 15px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    cursor: pointer;
+    background-image: linear-gradient(to right, #00bcd4, #2196f3); /* Cyan to Cobalt Blue */
+    transition: background-image 0.3s ease;
+}
+
+button:hover {
+    background-image: linear-gradient(to right, #2196f3, #00bcd4); /* Reverse gradient on hover */
+}
+
+#route-details {
+    margin-top: 30px;
+    border-top: 1px solid #4a5568;
+    padding-top: 20px;
+}
+
+#route-details h2, #route-details h3 {
+    color: #90cdf4;
+    margin-bottom: 10px;
+}
+
+#route-details p {
+    margin-bottom: 5px;
+}
+
+/* Hide Leaflet Routing Machine's native directions table */
+.leaflet-routing-container.leaflet-control {
+    display: none;
+}
+
+/* Fix Leaflet control text colors due to body text override (white on white buttons) */
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out,
+.leaflet-control-layers-toggle,
+.leaflet-control-layers-list,
+.leaflet-control-layers span,
+.leaflet-control-layers label {
+    color: #1e293b !important; /* Dark slate color for readability */
+}
+
+/* Input error state styling */
+.input-group.has-error input[type="text"] {
+    border-color: #f87171 !important;
+    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.4) !important;
+}
+
+.error-message {
+    color: #f87171;
+    font-size: 13px;
+    margin-top: 5px;
+    font-weight: 500;
+    display: none;
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+.input-group.has-error .error-message {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .sidebar {
+        width: calc(100% - 40px);
+        left: 20px;
+        right: 20px;
+        top: 20px;
+        bottom: 20px;
+        max-height: unset;
+    }
+}
