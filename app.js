@@ -52,6 +52,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const userAgent = 'MeuAppDeRotasEscolar/1.0';
 
+    // ---- safeFetch: tenta direto e cai em proxies CORS públicos em caso de falha ----
+    // Usado para contornar bloqueios de CORS (especialmente ao abrir index.html via file://)
+    const CORS_PROXIES = [
+        (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        (url) => `https://thingproxy.freeboard.io/fetch/${url}`
+    ];
+
+    async function safeFetch(url, options = {}) {
+        // 1) tentativa direta
+        try {
+            const res = await fetch(url, options);
+            if (res.ok) return res;
+            throw new Error(`HTTP ${res.status}`);
+        } catch (directErr) {
+            console.warn(`Falha direta em ${url} (${directErr.message}). Tentando proxies CORS...`);
+        }
+        // 2) tenta cada proxy CORS em ordem
+        for (const buildProxyUrl of CORS_PROXIES) {
+            try {
+                const proxied = buildProxyUrl(url);
+                const res = await fetch(proxied, options);
+                if (res.ok) {
+                    console.log(`Sucesso via proxy: ${proxied}`);
+                    return res;
+                }
+            } catch (proxyErr) {
+                console.warn('Proxy falhou:', proxyErr.message);
+            }
+        }
+        throw new Error(`Todas as tentativas (direta + ${CORS_PROXIES.length} proxies) falharam para ${url}`);
+    }
+
+    // ---- Router OSRM com fallback CORS ----
+    // O LRM usa um XHR interno (corslite) que pode ser bloqueado por CORS.
+    // Sobrescrevemos route() para usar safeFetch e reaproveitamos _routeDone do OSRMv1.
+    const SafeOSRMv1 = L.Routing.OSRMv1.extend({
+        route: function(waypoints, callback, context, options) {
+            const url = this.buildRouteUrl(waypoints, L.extend({}, this.options.routingOptions, options));
+            safeFetch(url)
+                .then(res => res.text())
+                .then(text => {
+                    const fakeResp = { status: 200, statusCode: 200, responseText: text };
+                    this._routeDone(fakeResp, waypoints, options, callback, context);
+                })
+                .catch(err => {
+                    callback.call(context || callback, {
+                        status: -1,
+                        message: `Erro de rede/CORS no roteamento: ${err.message || err}`
+                    });
+                });
+        }
+    });
+
     // Custom Icons
     const startIcon = L.icon({
         iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
@@ -92,11 +146,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ViaCEP API for CEP lookup
     async function fetchAddressFromCEP(cep) {
+        const cleanCep = String(cep).replace(/\D/g, '');
+        if (cleanCep.length !== 8) return null;
         try {
-            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+            const response = await safeFetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
             const data = await response.json();
-            if (!data.erro) {
-                return `${data.logradouro}, ${data.bairro}, ${data.localidade} - ${data.uf}`;
+            if (data && !data.erro) {
+                // Build address from non-empty parts only — CEPs gerais não têm logradouro/bairro
+                const parts = [data.logradouro, data.bairro, data.localidade].filter(p => p && p.trim());
+                const base = parts.join(', ');
+                return data.uf ? `${base} - ${data.uf}` : base;
             }
         } catch (error) {
             console.error('Erro ao buscar CEP:', error);
@@ -133,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // OSM Nominatim API para Geocodificação com fallbacks robustos
     async function geocodeAddress(address) {
-        const parts = address.split(',').map(p => p.trim());
+        const parts = address.split(',').map(p => p.trim()).filter(Boolean);
         const attempts = [address]; // Tentativa 1: Endereço completo
 
         // Se o endereço veio estruturado do ViaCEP (geralmente tem 3 partes: Rua, Bairro, Cidade - Estado)
@@ -148,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Se tiver apenas número no endereço, tenta remover o número e buscar pela rua
-        const logradouroParte = parts[0];
+        const logradouroParte = parts[0] || '';
         const matchNumber = logradouroParte.match(/(.*?)\s*,\s*\d+$/) || logradouroParte.match(/(.*?)\s+\d+$/);
         if (matchNumber && matchNumber[1]) {
             const ruaSemNumero = matchNumber[1];
@@ -158,21 +217,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Tenta por fim apenas a Cidade + Estado
+        // Tenta por fim apenas a Cidade + Estado (ou último componente disponível)
         if (parts.length >= 3) {
             attempts.push(parts[2]);
         } else if (parts.length >= 2) {
             attempts.push(parts[1]);
+        } else if (parts.length === 1) {
+            attempts.push(parts[0]);
         }
 
-        // Filtra tentativas únicas e não vazias
-        const uniqueAttempts = [...new Set(attempts.filter(Boolean))];
+        // Filtra tentativas únicas e não vazias (e remove vírgulas soltas no começo/fim)
+        const uniqueAttempts = [...new Set(
+            attempts
+                .map(a => (a || '').replace(/^[\s,]+|[\s,]+$/g, '').replace(/\s*,\s*,+/g, ', '))
+                .filter(a => a.length > 2)
+        )];
 
         for (const attempt of uniqueAttempts) {
             try {
                 // Sem cabeçalho User-Agent proibido para evitar bloqueios de segurança do navegador
                 const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(attempt)}&limit=1`;
-                const response = await fetch(url);
+                const response = await safeFetch(url);
                 const data = await response.json();
                 if (data.length > 0) {
                     const latlng = L.latLng(data[0].lat, data[0].lon);
@@ -218,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Sem cabeçalho User-Agent proibido
             const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`;
-            const response = await fetch(url);
+            const response = await safeFetch(url);
             const data = await response.json();
 
             data.forEach(result => {
@@ -354,16 +419,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const destSuccess = await processAddress(destinationInputEl, 'end', 'Destino');
         if (!destSuccess) return;
 
+        // Guarda: o LRM exige no mínimo 2 pontos válidos
+        if (waypoints.length < 2) {
+            showError(originInputEl, 'É necessário pelo menos 2 endereços válidos (origem e destino) para traçar a rota.');
+            return;
+        }
+
         if (routingControl) {
             map.removeControl(routingControl);
+            routingControl = null;
         }
 
         // Desenhar a rota com design premium fluorescente
         routingControl = L.Routing.control({
-            waypoints: waypoints,
-            routeWhileDragging: true,
-            language: 'pt',
+            waypoints: waypoints.map(latlng => L.Routing.waypoint(latlng)),
+            router: new SafeOSRMv1({
+                serviceUrl: 'https://router.project-osrm.org/route/v1',
+                timeout: 30000
+            }),
+            routeWhileDragging: false,
+            language: 'pt-BR', // 'pt' não existe na localização do LRM 3.2.12 — usar 'pt-BR'
             showAlternatives: false,
+            addWaypoints: false,    // Desativa UI interna que duplica/conflita com a nossa
+            draggableWaypoints: false,
+            fitSelectedRoutes: true,
+            autoRoute: true,
+            geocoder: null,
             lineOptions: {
                 styles: [
                     { color: '#0f172a', opacity: 0.6, weight: 8 }, // Contorno escuro
@@ -401,11 +482,18 @@ document.addEventListener('DOMContentLoaded', () => {
             errorBanner.className = 'error-message';
             errorBanner.style.display = 'block';
             errorBanner.style.marginTop = '15px';
-            errorBanner.textContent = 'Erro ao traçar rota de navegação entre os pontos. Verifique a viabilidade de tráfego.';
-            
+
+            // Expõe a mensagem real do LRM/OSRM para facilitar diagnóstico
+            const status = e && e.error && (e.error.status || e.error.code);
+            const rawMsg = e && e.error && (e.error.message || e.error.target && e.error.target.statusText);
+            const detalhe = [status, rawMsg].filter(Boolean).join(' - ');
+            errorBanner.textContent = detalhe
+                ? `Erro ao traçar rota: ${detalhe}`
+                : 'Erro ao traçar rota de navegação entre os pontos. Verifique a viabilidade de tráfego.';
+
             turnByTurnInstructionsDiv.innerHTML = '';
             turnByTurnInstructionsDiv.appendChild(errorBanner);
-            
+
             totalDistanceSpan.textContent = '---';
             totalTimeSpan.textContent = '---';
             routeDetails.style.display = 'block';
