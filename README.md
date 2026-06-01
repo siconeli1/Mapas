@@ -1,29 +1,29 @@
 # Meu App de Rotas Escolar
 
-Aplicacao web para consulta de enderecos, CEPs e calculo de rotas em mapa interativo.
+Aplicação web para consulta de endereços, CEPs e cálculo de rotas em um mapa interativo.
 
-Este projeto foi desenvolvido como uma das atividades da minha jornada no curso do SENAI: **Desenvolvimento de aplicacoes de IA generativa utilizando Google Antigravity**.
+Este projeto foi desenvolvido como uma das atividades da minha jornada no curso do SENAI: **Desenvolvimento de aplicações de IA generativa utilizando Google Antigravity**.
 
 ## Objetivo
 
-O objetivo da atividade foi criar uma pagina web funcional para visualizacao de mapas e calculo de rotas, aplicando conceitos de desenvolvimento front-end, consumo de APIs externas e interacao com servicos de geolocalizacao.
+O objetivo da atividade foi criar uma página web funcional para visualização de mapas e cálculo de rotas, aplicando conceitos de desenvolvimento front-end, consumo de APIs externas e integração com serviços de geolocalização.
 
-A aplicacao permite informar origem, destino e paradas intermediarias para gerar uma rota no mapa, exibindo distancia, tempo estimado e instrucoes de navegacao.
+A aplicação permite informar origem, destino e paradas intermediárias para gerar uma rota no mapa, exibindo distância, tempo estimado e instruções de navegação.
 
 ## Funcionalidades
 
-- Visualizacao de mapa interativo com Leaflet.
-- Alternancia entre camadas de mapa:
+- Visualização de mapa interativo com Leaflet.
+- Alternância entre camadas de mapa:
   - mapa de ruas;
   - modo escuro;
-  - satelite.
-- Busca de enderecos com autocomplete.
+  - satélite.
+- Busca de endereços com autocomplete.
 - Consulta de CEPs brasileiros usando ViaCEP.
-- Calculo de rotas com origem, destino e paradas.
-- Marcadores diferentes para inicio, destino e paradas.
-- Exibicao de distancia total, tempo estimado e instrucoes da rota.
+- Cálculo de rotas com origem, destino e paradas.
+- Marcadores diferentes para início, destino e paradas.
+- Exibição da distância total, do tempo estimado e das instruções da rota.
 - Tratamento visual de erros nos campos.
-- Estado de carregamento durante o calculo da rota.
+- Estado de carregamento durante o cálculo da rota.
 - Layout responsivo para telas menores.
 
 ## Tecnologias Utilizadas
@@ -48,15 +48,15 @@ A aplicacao permite informar origem, destino e paradas intermediarias para gerar
 
 ## Como Executar
 
-Voce pode abrir o arquivo `index.html` diretamente no navegador.
+Você pode abrir o arquivo `index.html` diretamente no navegador.
 
-Para uma execucao mais estavel, recomenda-se usar um servidor local:
+Para uma execução mais estável, recomenda-se usar um servidor local:
 
 ```powershell
 npx serve .
 ```
 
-Depois, acesse o endereco exibido no terminal. Normalmente sera algo como:
+Depois, acesse o endereço exibido no terminal. Normalmente será algo como:
 
 ```text
 http://localhost:3000
@@ -64,33 +64,33 @@ http://localhost:3000
 
 ## Como Usar
 
-1. Digite um endereco ou CEP no campo de origem.
-2. Digite um endereco ou CEP no campo de destino.
-3. Opcionalmente, adicione paradas intermediarias.
+1. Digite um endereço ou CEP no campo de origem.
+2. Digite um endereço ou CEP no campo de destino.
+3. Opcionalmente, adicione paradas intermediárias.
 4. Clique em **Calcular Rota**.
-5. Veja a rota desenhada no mapa, junto com distancia, tempo estimado e instrucoes.
+5. Veja a rota desenhada no mapa, junto com a distância, o tempo estimado e as instruções.
 
-## APIs e Servicos Externos
+## APIs e Serviços Externos
 
-O app utiliza servicos externos gratuitos:
+O app utiliza serviços externos gratuitos:
 
-- **ViaCEP** para buscar enderecos a partir de CEPs brasileiros.
-- **Nominatim/OpenStreetMap** para transformar enderecos em coordenadas.
+- **ViaCEP** para buscar endereços a partir de CEPs brasileiros.
+- **Nominatim/OpenStreetMap** para transformar endereços em coordenadas.
 - **OSRM** para calcular rotas entre os pontos.
 
-Por depender de servicos externos, a aplicacao precisa de conexao com a internet para funcionar completamente.
+Por depender de serviços externos, a aplicação precisa de conexão com a internet para funcionar completamente.
 
 ## Melhorias Implementadas
 
-Durante a revisao do projeto, foram aplicadas melhorias importantes:
+Durante a revisão do projeto, foram aplicadas melhorias importantes:
 
-- Correcao de textos com problemas de codificacao.
-- Remocao de proxies CORS publicos para evitar envio de enderecos do usuario para servicos terceiros.
-- Adicao de cache e timeout nas chamadas externas.
-- Busca de enderecos limitada ao Brasil.
-- Bloqueio do botao de calculo enquanto a rota esta sendo processada.
-- Tratamento mais claro para erros de endereco e roteamento.
+- Correção de textos com problemas de codificação.
+- Remoção de proxies CORS públicos para evitar o envio de endereços do usuário para serviços de terceiros.
+- Adição de cache e timeout nas chamadas externas.
+- Busca de endereços limitada ao Brasil.
+- Bloqueio do botão de cálculo enquanto a rota está sendo processada.
+- Tratamento mais claro para erros de endereço e roteamento.
 
 ## Status
 
-Projeto academico em desenvolvimento, criado para praticar a construcao de uma interface web integrada a APIs de mapas e rotas.
+Projeto acadêmico em desenvolvimento, criado para praticar a construção de uma interface web integrada a APIs de mapas e rotas.
