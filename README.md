@@ -32,7 +32,6 @@ A aplicacao permite informar origem, destino e paradas intermediarias para gerar
 - CSS3
 - JavaScript
 - Leaflet
-- Leaflet Routing Machine
 - OpenStreetMap / Nominatim
 - OSRM
 - ViaCEP

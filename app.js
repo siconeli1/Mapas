@@ -31,8 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalTimeSpan = document.getElementById('total-time');
     const turnByTurnInstructionsDiv = document.getElementById('turn-by-turn-instructions');
 
-    let stopCounter = 0;
-    let routingControl = null;
+    let routeLine = null;
+    let routeOutline = null;
     let isCalculating = false;
 
     const markers = [];
@@ -71,9 +71,14 @@ document.addEventListener('DOMContentLoaded', () => {
         markers.forEach(marker => map.removeLayer(marker));
         markers.length = 0;
 
-        if (routingControl) {
-            map.removeControl(routingControl);
-            routingControl = null;
+        if (routeLine) {
+            map.removeLayer(routeLine);
+            routeLine = null;
+        }
+
+        if (routeOutline) {
+            map.removeLayer(routeOutline);
+            routeOutline = null;
         }
     }
 
@@ -113,24 +118,6 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(timeoutId);
         }
     }
-
-    const DirectOSRMv1 = L.Routing.OSRMv1.extend({
-        route: function(waypoints, callback, context, options) {
-            const url = this.buildRouteUrl(waypoints, L.extend({}, this.options.routingOptions, options));
-
-            fetchWithTimeout(url, { timeout: 30000, cacheKey: `route:${url}`, responseType: 'text' })
-                .then(text => {
-                    const response = { status: 200, statusCode: 200, responseText: text };
-                    this._routeDone(response, waypoints, options, callback, context);
-                })
-                .catch(error => {
-                    callback.call(context || callback, {
-                        status: -1,
-                        message: `Erro de rede no roteamento: ${error.message || error}`
-                    });
-                });
-        }
-    });
 
     async function fetchAddressFromCEP(cep) {
         const cleanCep = String(cep).replace(/\D/g, '');
@@ -315,26 +302,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     addStopButton.addEventListener('click', () => {
-        stopCounter++;
-
         const stopInputGroup = document.createElement('div');
         stopInputGroup.className = 'input-group';
         stopInputGroup.innerHTML = `
-            <label for="stop-${stopCounter}-input">Parada ${stopCounter}:</label>
-            <input type="text" id="stop-${stopCounter}-input" placeholder="Digite o endereco da parada ou CEP">
-            <div id="stop-${stopCounter}-autocomplete" class="autocomplete-results"></div>
-            <button class="remove-stop" type="button" data-stop-id="stop-${stopCounter}-input">Remover</button>
+            <label>Parada:</label>
+            <input type="text" placeholder="Digite o endereco da parada ou CEP">
+            <div class="autocomplete-results"></div>
+            <button class="remove-stop" type="button">Remover</button>
         `;
 
         inputsContainer.appendChild(stopInputGroup);
+        renumberStops();
 
         stopInputGroup.querySelector('.remove-stop').addEventListener('click', (event) => {
-            const inputToRemove = document.getElementById(event.target.dataset.stopId);
-            if (inputToRemove && inputToRemove.parentNode) {
-                inputToRemove.parentNode.remove();
-            }
+            event.target.closest('.input-group').remove();
+            renumberStops();
         });
     });
+
+    function renumberStops() {
+        const stopGroups = Array.from(inputsContainer.querySelectorAll('.input-group'))
+            .filter(group => group.querySelector('.remove-stop'));
+
+        stopGroups.forEach((group, index) => {
+            const stopNumber = index + 1;
+            const inputId = `stop-${stopNumber}-input`;
+            const autocompleteId = `stop-${stopNumber}-autocomplete`;
+            const label = group.querySelector('label');
+            const input = group.querySelector('input');
+            const autocomplete = group.querySelector('.autocomplete-results');
+
+            label.textContent = `Parada ${stopNumber}:`;
+            label.setAttribute('for', inputId);
+            input.id = inputId;
+            autocomplete.id = autocompleteId;
+        });
+    }
 
     async function processAddress(inputElement, type, label) {
         const address = inputElement.value.trim();
@@ -404,67 +407,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            routingControl = L.Routing.control({
-                waypoints: waypoints.map(latlng => L.Routing.waypoint(latlng)),
-                router: new DirectOSRMv1({
-                    serviceUrl: 'https://router.project-osrm.org/route/v1',
-                    timeout: 30000
-                }),
-                routeWhileDragging: false,
-                language: 'pt-BR',
-                showAlternatives: false,
-                addWaypoints: false,
-                draggableWaypoints: false,
-                fitSelectedRoutes: true,
-                autoRoute: true,
-                geocoder: null,
-                lineOptions: {
-                    styles: [
-                        { color: '#0f172a', opacity: 0.6, weight: 8 },
-                        { color: '#38bdf8', opacity: 1, weight: 4 }
-                    ]
-                },
-                createMarker: () => null
-            }).addTo(map);
-
             routeRequestStarted = true;
-
-            routingControl.on('routesfound', (event) => {
-                const route = event.routes[0];
-                if (!route) {
-                    showRouteError('Nenhuma rota foi encontrada para os pontos informados.');
-                    return;
-                }
-
-                totalDistanceSpan.textContent = `${(route.summary.totalDistance / 1000).toFixed(2)} km`;
-                totalTimeSpan.textContent = `${Math.round(route.summary.totalTime / 60)} minutos`;
-
-                const instructionsList = document.createElement('ol');
-                route.instructions.forEach(instruction => {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = instruction.text;
-                    instructionsList.appendChild(listItem);
-                });
-
-                turnByTurnInstructionsDiv.innerHTML = '';
-                turnByTurnInstructionsDiv.appendChild(instructionsList);
-                routeDetails.style.display = 'block';
-                setLoadingState(false);
-            });
-
-            routingControl.on('routingerror', (event) => {
-                const error = event && event.error;
-                const status = error && (error.status || error.code);
-                const message = error && (error.message || error.target && error.target.statusText);
-                const details = [status, message].filter(Boolean).join(' - ');
-
-                showRouteError(details
-                    ? `Erro ao tracar rota: ${details}`
-                    : 'Erro ao tracar rota entre os pontos. Verifique se todos os enderecos sao acessiveis por via terrestre.');
-            });
+            const route = await fetchRoute(waypoints);
+            renderRoute(route, waypoints);
         } catch (error) {
             console.error('Erro ao calcular rota:', error);
-            showRouteError(`Erro inesperado ao calcular rota: ${error.message || error}`);
+            zoomToRoute(null, getVisibleMarkerPoints());
+            showRouteError(error.message || 'Erro inesperado ao calcular rota.');
         } finally {
             if (!routeRequestStarted) {
                 setLoadingState(false);
@@ -485,5 +434,140 @@ document.addEventListener('DOMContentLoaded', () => {
         turnByTurnInstructionsDiv.appendChild(errorBanner);
         routeDetails.style.display = 'block';
         setLoadingState(false);
+    }
+
+    async function fetchRoute(waypoints) {
+        const coordinates = waypoints
+            .map(latlng => `${latlng.lng},${latlng.lat}`)
+            .join(';');
+
+        const params = new URLSearchParams({
+            overview: 'full',
+            geometries: 'geojson',
+            steps: 'true',
+            alternatives: 'false'
+        });
+
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?${params}`;
+        const data = await fetchWithTimeout(url, {
+            timeout: 30000,
+            cacheKey: `route:${coordinates}`
+        });
+
+        if (!data || data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+            const details = data && (data.message || data.code);
+            throw new Error(details
+                ? `Nao foi possivel tracar a rota: ${details}.`
+                : 'Nao foi possivel tracar uma rota entre os pontos informados.');
+        }
+
+        return data.routes[0];
+    }
+
+    function renderRoute(route, waypoints) {
+        const coordinates = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+
+        routeOutline = L.polyline(coordinates, {
+            color: '#0f172a',
+            opacity: 0.45,
+            weight: 10,
+            lineCap: 'round',
+            lineJoin: 'round'
+        }).addTo(map);
+
+        routeLine = L.polyline(coordinates, {
+            color: '#38bdf8',
+            opacity: 0.95,
+            weight: 5,
+            lineCap: 'round',
+            lineJoin: 'round'
+        }).addTo(map);
+
+        totalDistanceSpan.textContent = `${(route.distance / 1000).toFixed(2)} km`;
+        totalTimeSpan.textContent = `${Math.round(route.duration / 60)} minutos`;
+
+        turnByTurnInstructionsDiv.innerHTML = '';
+        turnByTurnInstructionsDiv.appendChild(buildInstructionsList(route));
+        routeDetails.style.display = 'block';
+
+        zoomToRoute(routeLine.getBounds(), waypoints);
+        setLoadingState(false);
+    }
+
+    function getVisibleMarkerPoints() {
+        return markers.map(marker => marker.getLatLng());
+    }
+
+    function zoomToRoute(bounds, waypoints) {
+        const sidebarWidth = window.innerWidth <= 768 ? 0 : 520;
+        const fallbackBounds = waypoints.length
+            ? L.latLngBounds(waypoints)
+            : null;
+        const targetBounds = bounds && bounds.isValid()
+            ? bounds
+            : fallbackBounds;
+
+        if (!targetBounds || !targetBounds.isValid()) return;
+
+        map.fitBounds(targetBounds, {
+            paddingTopLeft: [sidebarWidth, 70],
+            paddingBottomRight: [70, 70],
+            maxZoom: 16,
+            animate: true,
+            duration: 0.8
+        });
+    }
+
+    function buildInstructionsList(route) {
+        const instructionsList = document.createElement('ol');
+
+        route.legs.forEach(leg => {
+            leg.steps.forEach(step => {
+                const text = formatInstruction(step);
+                if (!text) return;
+
+                const listItem = document.createElement('li');
+                listItem.textContent = text;
+                instructionsList.appendChild(listItem);
+            });
+        });
+
+        if (!instructionsList.children.length) {
+            const item = document.createElement('li');
+            item.textContent = 'Siga pela rota destacada no mapa ate o destino.';
+            instructionsList.appendChild(item);
+        }
+
+        return instructionsList;
+    }
+
+    function formatInstruction(step) {
+        const name = step.name ? ` em ${step.name}` : '';
+        const distance = step.distance >= 1000
+            ? `${(step.distance / 1000).toFixed(1)} km`
+            : `${Math.round(step.distance)} m`;
+
+        const maneuver = step.maneuver || {};
+        const type = maneuver.type;
+        const modifier = maneuver.modifier;
+
+        const directions = {
+            left: 'vire a esquerda',
+            right: 'vire a direita',
+            slight_left: 'mantenha levemente a esquerda',
+            slight_right: 'mantenha levemente a direita',
+            sharp_left: 'vire fortemente a esquerda',
+            sharp_right: 'vire fortemente a direita',
+            straight: 'siga em frente'
+        };
+
+        if (type === 'depart') return `Saia${name} e siga por ${distance}.`;
+        if (type === 'arrive') return 'Voce chegou ao destino.';
+        if (type === 'roundabout' || type === 'rotary') return `Entre na rotatoria${name} e siga por ${distance}.`;
+        if (type === 'merge') return `Entre na via${name} e siga por ${distance}.`;
+        if (type === 'new name') return `Continue${name} por ${distance}.`;
+
+        const action = directions[modifier] || 'continue';
+        return `${action.charAt(0).toUpperCase()}${action.slice(1)}${name} e siga por ${distance}.`;
     }
 });

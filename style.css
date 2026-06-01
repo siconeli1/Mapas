@@ -124,11 +124,6 @@ button:disabled {
     margin-bottom: 5px;
 }
 
-/* Hide Leaflet Routing Machine's native directions table */
-.leaflet-routing-container.leaflet-control {
-    display: none;
-}
-
 /* Fix Leaflet control text colors due to body text override (white on white buttons) */
 .leaflet-control-zoom-in,
 .leaflet-control-zoom-out,
