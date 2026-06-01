@@ -96,14 +96,20 @@ button {
     color: white;
     cursor: pointer;
     background-image: linear-gradient(to right, #00bcd4, #2196f3); /* Cyan to Cobalt Blue */
-    transition: background-image 0.3s ease;
+    transition: background-image 0.3s ease, opacity 0.2s ease;
 }
 
 button:hover {
     background-image: linear-gradient(to right, #2196f3, #00bcd4); /* Reverse gradient on hover */
 }
 
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
 #route-details {
+    display: none;
     margin-top: 30px;
     border-top: 1px solid #4a5568;
     padding-top: 20px;
@@ -166,5 +172,16 @@ button:hover {
         top: 20px;
         bottom: 20px;
         max-height: unset;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar {
+        left: 10px;
+        right: 10px;
+        top: 10px;
+        bottom: 10px;
+        width: calc(100% - 20px);
+        padding: 14px;
     }
 }
